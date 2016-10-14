@@ -10,10 +10,11 @@ FIXED_PARENTS = True
 # Whether or not to use mu + lambda survivor selection
 MU_PLUS_LAMBDA = False
 
+NUM_DIMENSIONS = 30
 # Constant step factor
 C = 0.9
+TAL = 1/math.sqrt(NUM_DIMENSIONS)
 
-NUM_DIMENSIONS = 5
 X_MIN = -15
 X_MAX = 15
 
@@ -33,8 +34,9 @@ def generate_population():
 
 def ackley(genome):
     n = len(genome)
-    sum1 = sum(map(lambda x : x ** 2, genome))
-    sum2 = sum(map(lambda x : math.cos(2 * math.pi * x), genome))
+
+    sum1 = sum(map(lambda x : x[0] ** 2, genome))
+    sum2 = sum(map(lambda x : math.cos(2 * math.pi * x[0]), genome))
     a = -0.2 * math.sqrt((1.0 / n) * sum1)
     b = (1.0 / n) * sum2
     return -20 * math.exp(a) - math.exp(b) + 20 + math.e
@@ -49,7 +51,7 @@ def recombination(population):
         xi = parents[0][i][0]
         xj = parents[1][i][0]
         stdi = parents[0][i][1]
-        stdj = = parents[1][i][1]
+        stdj = parents[1][i][1]
         child.append((float(xi + xj) / 2), (float(stdi + stdj) / 2))
         if not FIXED_PARENTS:
             parents = select_parents(population)
@@ -66,27 +68,31 @@ def mutation(child):
     mutated = list()
     Z = [random.gauss(0, child[i][1]) for i in range(NUM_DIMENSIONS)]
     for i in range(NUM_DIMENSIONS):
-        mutated.append(child[i] + Z[i])
+        mutated.append(((child[i][0] + Z[i]),child[i][1]))
+    
     return child if ackley(child) <= ackley(mutated) else mutated
 
-def perturbation(offspring):
+def perturbation(population):
     new_offspring = list()
     s = 0
     t = 0
-    for child in offspring:
-        new_child = mutation(child)
+    for child in population:
+        new_child = adjust_sigma(child)
+        new_child = mutation(new_child)
         new_offspring.append(new_child)
-        if ackley(new_child[0]) < ackley(child[0]):
+        if new_child != child[0]:
             s += 1
         t += 1
     return (new_offspring, float(s) / t)
     
-def adjust_sigma(sigma, ps):
-    if ps > 0.2:
-        return float(sigma) / C
-    elif ps < 0.2:
-        return sigma * C
-    return sigma
+def adjust_sigma(individual):
+    newIndividual = list()
+    for i in range(NUM_DIMENSIONS):
+        sigma = individual[i][0]
+        newSigma = sigma * math.exp(TAL * random.gauss(0,1))
+        newIndividual.append((individual[i][0],newSigma))
+    return newIndividual
+    
 
 def select_survivors(population, offspring):
     new_population = population + offspring if MU_PLUS_LAMBDA else offspring  
@@ -107,7 +113,7 @@ def evolve():
     #sigma = 1.0
     for i in range(NUM_ITERATIONS):
         #offspring = generate_offspring(population)
-        sigma = adjust_sigma(sigma, ps)
+        #sigma = adjust_sigma(sigma, ps)
         (offspring, ps) = perturbation(population)
         if check_for_solution(offspring):
             print "Solution found after " + str(i) + " iterations"
