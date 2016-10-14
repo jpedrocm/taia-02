@@ -4,15 +4,16 @@ import sys
 
 POPULATION_SIZE = 50
 # Number of children
-LAMBDA = 200
+LAMBDA = 100
 # Whether or not to use fixed 2 parents for each individual
 FIXED_PARENTS = True
 # Whether or not to use mu + lambda survivor selection
 MU_PLUS_LAMBDA = False
-
+# Number of dimensions
 NUM_DIMENSIONS = 30
+# If it should or should not use recombination
+USE_RECOMBINATION = True
 # Constant step factor
-C = 0.9
 TAL = 1/math.sqrt(NUM_DIMENSIONS)
 
 X_MIN = -15
@@ -52,7 +53,7 @@ def recombination(population):
         xj = parents[1][i][0]
         stdi = parents[0][i][1]
         stdj = parents[1][i][1]
-        child.append((float(xi + xj) / 2), (float(stdi + stdj) / 2))
+        child.append(((float(xi + xj) / 2), (float(stdi + stdj) / 2)))
         if not FIXED_PARENTS:
             parents = select_parents(population)
     return child
@@ -104,7 +105,7 @@ def check_for_solution(population):
     for x in population:
         # By using sys.float_info.epsilon, which equals to ~10e-16 in my machine,
         # the convergence rate is greatly diminished. Using 10e-6 instead.
-        if abs(ackley(x)) < 10e-6:
+        if abs(ackley(x)) < 10e-10:
             return True
     return False
 
@@ -112,9 +113,11 @@ def evolve():
     population = generate_population()
     #sigma = 1.0
     for i in range(NUM_ITERATIONS):
-        #offspring = generate_offspring(population)
-        #sigma = adjust_sigma(sigma, ps)
-        (offspring, ps) = perturbation(population)
+        offspring = list()
+        if USE_RECOMBINATION:
+            offspring = generate_offspring(population)
+            
+        (offspring, ps) = perturbation(population + offspring)
         if check_for_solution(offspring):
             print "Solution found after " + str(i) + " iterations"
             return
