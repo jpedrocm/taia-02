@@ -24,7 +24,10 @@ def generate_population():
     for i in range(POPULATION_SIZE):
         genome = list()
         for s in range(NUM_DIMENSIONS):
-            genome.append(random.uniform(X_MIN, X_MAX))
+            #The first element of the tuple is the genome value
+            #The second element of the tuple is the std associated with the pace for that genome
+            tup1 = (random.uniform(X_MIN, X_MAX), 1);
+            genome.append(tup1)
         population.append(genome)
     return population
 
@@ -43,9 +46,11 @@ def recombination(population):
     parents = select_parents(population)
     child = list()
     for i in range(NUM_DIMENSIONS):
-        xi = parents[0][i]
-        xj = parents[1][i]
-        child.append(float(xi + xj) / 2)
+        xi = parents[0][i][0]
+        xj = parents[1][i][0]
+        stdi = parents[0][i][1]
+        stdj = = parents[1][i][1]
+        child.append((float(xi + xj) / 2), (float(stdi + stdj) / 2))
         if not FIXED_PARENTS:
             parents = select_parents(population)
     return child
@@ -57,21 +62,21 @@ def generate_offspring(population):
         offspring.append(child)
     return offspring
 
-def mutation(child, Z):
+def mutation(child):
     mutated = list()
+    Z = [random.gauss(0, child[i][1]) for i in range(NUM_DIMENSIONS)]
     for i in range(NUM_DIMENSIONS):
         mutated.append(child[i] + Z[i])
     return child if ackley(child) <= ackley(mutated) else mutated
 
-def perturbation(offspring, sigma):
-    Z = [random.gauss(0, sigma) for i in range(NUM_DIMENSIONS)]
+def perturbation(offspring):
     new_offspring = list()
     s = 0
     t = 0
     for child in offspring:
-        new_child = mutation(child, Z)
+        new_child = mutation(child)
         new_offspring.append(new_child)
-        if new_child != child:
+        if ackley(new_child[0]) < ackley(child[0]):
             s += 1
         t += 1
     return (new_offspring, float(s) / t)
@@ -99,11 +104,11 @@ def check_for_solution(population):
 
 def evolve():
     population = generate_population()
-    sigma = 1.0
+    #sigma = 1.0
     for i in range(NUM_ITERATIONS):
-        offspring = generate_offspring(population)
-        (offspring, ps) = perturbation(offspring, sigma)
+        #offspring = generate_offspring(population)
         sigma = adjust_sigma(sigma, ps)
+        (offspring, ps) = perturbation(population)
         if check_for_solution(offspring):
             print "Solution found after " + str(i) + " iterations"
             return
