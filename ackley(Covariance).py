@@ -1,5 +1,6 @@
 import math
 import random
+import numpy
 import sys
 
 POPULATION_SIZE = 50
@@ -40,22 +41,23 @@ def generate_population():
 
 def covarianceMat(sigmas,alfas):
     covMatrix = list()
-    length = len(sigmas)
-    for i in range(length):
+    for i in range(NUM_DIMENSIONS):
         line = list()
-        for j in range(length):
+        for j in range(NUM_DIMENSIONS):
             if i == j:
-                line.append(sigmas[0][j] * sigmas[0][i])
+                line.append(sigmas[j][1] * sigmas[i][1])
             else:
-                value = (sigmas[0][j] * sigmas[0][j] + sigmas[0][i] * sigmas[0][i])/2
-                value *= math.tan(2*alfas[ALFA_MAPPING[i][j]])
-                line.append(value)
+                value = (sigmas[j][1] * sigmas[j][1] + sigmas[i][1] * sigmas[i][1])/2
+                value *= math.tan(2 * alfas[ALFA_MAPPING[i][j]])
+                line.append(abs(value))
+        covMatrix.append(line)
     return covMatrix
                 
 
 def perturbationForCov(cov,mean):
     length = len(cov)
     meanList = [mean]*length
+    # print numpy.random.multivariate_normal(meanList,cov)
     return numpy.random.multivariate_normal(meanList,cov)
 
 def ackley(genome):
@@ -83,7 +85,8 @@ def recombination(population):
             parents = select_parents(population)
     
     alfas = list()
-    for i in range(NUM_DIMENSIONS):
+    alfa_sz = (NUM_DIMENSIONS*(NUM_DIMENSIONS - 1)/2)
+    for i in range(alfa_sz):
         alfas.append((parents[1][1][i]+parents[0][1][i])/2)
 
     return (genome,alfas)
@@ -100,9 +103,9 @@ def mutation(genome, alfas):
     matrix = covarianceMat(genome,alfas)
     Z = perturbationForCov(matrix,1)
     for i in range(NUM_DIMENSIONS):
-        mutated.append(((child[i][0] + Z[i]),child[i][1]))
+        mutated.append(((genome[i][0] + Z[i]),genome[i][1]))
     
-    return child if ackley(child) <= ackley(mutated) else mutated
+    return genome if ackley(genome) <= ackley(mutated) else mutated
 
 def perturbation(population):
     new_offspring = list()
@@ -114,18 +117,17 @@ def perturbation(population):
         alfas = child[1]
         genome_adjusted_sigmas = adjust_sigma(genome,global_adjustment)
         new_alfas = adjust_alfa(alfas)
-
         genome_adjusted_sigmas = mutation(genome_adjusted_sigmas, new_alfas)
-        new_offspring.append(new_child)
-        if new_child != child[0]:
-            s += 1
-        t += 1
-    return (new_offspring, float(s) / t)
+        
+        new_offspring.append((genome_adjusted_sigmas, new_alfas))
+        
+    return new_offspring
     
 def adjust_alfa(alfas):
     newAlfa = list()
     for i in alfas:
-        newAlfa.append( i + BETA*random.gauss(0,1))
+        newAlfa.append(i + BETA*random.gauss(0,1))
+
     return newAlfa
     
 def adjust_sigma(individual,global_adjustment):
@@ -138,7 +140,7 @@ def adjust_sigma(individual,global_adjustment):
 
 def select_survivors(population, offspring):
     new_population = population + offspring if MU_PLUS_LAMBDA else offspring  
-    new_population.sort(key = lambda x : ackley(x))
+    new_population.sort(key = lambda x : ackley(x[0]))
     new_population = new_population[:POPULATION_SIZE]
     return new_population
 
@@ -146,11 +148,12 @@ def check_for_solution(population):
     for x in population:
         # By using sys.float_info.epsilon, which equals to ~10e-16 in my machine,
         # the convergence rate is greatly diminished. Using 10e-6 instead.
-        if abs(ackley(x)) < 10e-10:
+        if abs(ackley(x[0])) < 10e-10:
             return True
     return False
 def pre_calc_alpha_mapping():
-    ALFA_MAPPING = [[-1]*NUM_DIMENSIONS]*NUM_DIMENSIONS
+    global ALFA_MAPPING
+    ALFA_MAPPING = [([(-1) for y in range(NUM_DIMENSIONS)]) for x in range(NUM_DIMENSIONS)]
     counter = 0
     for i in range(NUM_DIMENSIONS):
         for j in range(NUM_DIMENSIONS):
@@ -159,9 +162,7 @@ def pre_calc_alpha_mapping():
                     ALFA_MAPPING[i][j] = counter
                     counter += 1
                 else:
-                    ALFA_MAPPING[i][j] = ALFA_MAPPING[j][i]
-    print counter                    
-
+                    ALFA_MAPPING[i][j] = ALFA_MAPPING[j][i]                  
 
 def evolve():
     population = generate_population()
@@ -171,7 +172,7 @@ def evolve():
         if USE_RECOMBINATION:
             offspring = generate_offspring(population)
             
-        (offspring, ps) = perturbation(population + offspring)
+        offspring = perturbation(population + offspring)
         if check_for_solution(offspring):
             print "Solution found after " + str(i) + " iterations"
             return
@@ -181,3 +182,4 @@ def evolve():
     print "No solution found after " + str(NUM_ITERATIONS) + " iterations"
 
 evolve()
+#pre_calc_alpha_mapping()
