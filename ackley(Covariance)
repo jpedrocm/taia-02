@@ -1,0 +1,183 @@
+import math
+import random
+import sys
+
+POPULATION_SIZE = 50
+# Number of children
+LAMBDA = 100
+# Whether or not to use fixed 2 parents for each individual
+FIXED_PARENTS = True
+# Whether or not to use mu + lambda survivor selection
+MU_PLUS_LAMBDA = False
+# Number of dimensions
+NUM_DIMENSIONS = 30
+# If it should or should not use recombination
+USE_RECOMBINATION = True
+# Constant step factor
+TAL_LOCAL = 1/math.sqrt(2*math.sqrt(NUM_DIMENSIONS))
+TAL_GLOBAL = 1/math.sqrt(2*NUM_DIMENSIONS)
+BETA = math.pi/36 # 5 degrees as slides specify
+
+X_MIN = -15
+X_MAX = 15
+
+NUM_ITERATIONS = 1000
+
+ALFA_MAPPING = []
+
+def generate_population():
+    population = list()
+    alfa = [BETA] * (NUM_DIMENSIONS*(NUM_DIMENSIONS - 1)/2)
+    for i in range(POPULATION_SIZE):
+        genome = list()
+        for s in range(NUM_DIMENSIONS):
+            #The first element of the tuple is the genome value
+            #The second element of the tuple is the std associated with the pace for that genome
+            tup1 = (random.uniform(X_MIN, X_MAX), 1);
+            genome.append(tup1)
+        population.append((genome, alfa))
+    return population
+
+def covarianceMat(sigmas,alfas):
+    covMatrix = list()
+    length = len(sigmas)
+    for i in range(length):
+        line = list()
+        for j in range(length):
+            if i == j:
+                line.append(sigmas[0][j] * sigmas[0][i])
+            else:
+                value = (sigmas[0][j] * sigmas[0][j] + sigmas[0][i] * sigmas[0][i])/2
+                value *= math.tan(2*alfas[ALFA_MAPPING[i][j]])
+                line.append(value)
+    return covMatrix
+                
+
+def perturbationForCov(cov,mean):
+    length = len(cov)
+    meanList = [mean]*length
+    return numpy.random.multivariate_normal(meanList,cov)
+
+def ackley(genome):
+    n = len(genome)
+
+    sum1 = sum(map(lambda x : x[0] ** 2, genome))
+    sum2 = sum(map(lambda x : math.cos(2 * math.pi * x[0]), genome))
+    a = -0.2 * math.sqrt((1.0 / n) * sum1)
+    b = (1.0 / n) * sum2
+    return -20 * math.exp(a) - math.exp(b) + 20 + math.e
+
+def select_parents(population):
+    return random.sample(population, 2)
+
+def recombination(population):
+    parents = select_parents(population)
+    genome = list()
+    for i in range(NUM_DIMENSIONS):
+        xi = parents[0][0][i][0]
+        xj = parents[1][0][i][0]
+        stdi = parents[0][0][i][1]
+        stdj = parents[1][0][i][1]
+        genome.append(((float(xi + xj) / 2), (float(stdi + stdj) / 2)))
+        if not FIXED_PARENTS:
+            parents = select_parents(population)
+    
+    alfas = list()
+    for i in range(NUM_DIMENSIONS):
+        alfas.append((parents[1][1][i]+parents[0][1][i])/2)
+
+    return (genome,alfas)
+
+def generate_offspring(population):
+    offspring = list()
+    for i in range(LAMBDA):
+        child = recombination(population)
+        offspring.append(child)
+    return offspring
+
+def mutation(genome, alfas):
+    mutated = list()
+    matrix = covarianceMat(genome,alfas)
+    Z = perturbationForCov(matrix,1)
+    for i in range(NUM_DIMENSIONS):
+        mutated.append(((child[i][0] + Z[i]),child[i][1]))
+    
+    return child if ackley(child) <= ackley(mutated) else mutated
+
+def perturbation(population):
+    new_offspring = list()
+    s = 0
+    t = 0
+    global_adjustment = TAL_GLOBAL * random.gauss(0,1)
+    for child in population:
+        genome = child[0]
+        alfas = child[1]
+        genome_adjusted_sigmas = adjust_sigma(genome,global_adjustment)
+        new_alfas = adjust_alfa(alfas)
+
+        genome_adjusted_sigmas = mutation(genome_adjusted_sigmas, new_alfas)
+        new_offspring.append(new_child)
+        if new_child != child[0]:
+            s += 1
+        t += 1
+    return (new_offspring, float(s) / t)
+    
+def adjust_alfa(alfas):
+    newAlfa = list()
+    for i in alfas:
+        newAlfa.append( i + BETA*random.gauss(0,1))
+    return newAlfa
+    
+def adjust_sigma(individual,global_adjustment):
+    newIndividual = list()
+    for i in range(NUM_DIMENSIONS):
+        sigma = individual[i][0]
+        newSigma = sigma * math.exp(TAL_LOCAL * random.gauss(0,1) + global_adjustment)
+        newIndividual.append((individual[i][0],newSigma))
+    return newIndividual
+
+def select_survivors(population, offspring):
+    new_population = population + offspring if MU_PLUS_LAMBDA else offspring  
+    new_population.sort(key = lambda x : ackley(x))
+    new_population = new_population[:POPULATION_SIZE]
+    return new_population
+
+def check_for_solution(population):
+    for x in population:
+        # By using sys.float_info.epsilon, which equals to ~10e-16 in my machine,
+        # the convergence rate is greatly diminished. Using 10e-6 instead.
+        if abs(ackley(x)) < 10e-10:
+            return True
+    return False
+def pre_calc_alpha_mapping():
+    ALFA_MAPPING = [[-1]*NUM_DIMENSIONS]*NUM_DIMENSIONS
+    counter = 0
+    for i in range(NUM_DIMENSIONS):
+        for j in range(NUM_DIMENSIONS):
+            if i != j:
+                if ALFA_MAPPING[j][i] == -1:
+                    ALFA_MAPPING[i][j] = counter
+                    counter += 1
+                else:
+                    ALFA_MAPPING[i][j] = ALFA_MAPPING[j][i]
+    print counter                    
+
+
+def evolve():
+    population = generate_population()
+    pre_calc_alpha_mapping()
+    for i in range(NUM_ITERATIONS):
+        offspring = list()
+        if USE_RECOMBINATION:
+            offspring = generate_offspring(population)
+            
+        (offspring, ps) = perturbation(population + offspring)
+        if check_for_solution(offspring):
+            print "Solution found after " + str(i) + " iterations"
+            return
+        population = select_survivors(population, offspring)
+        # DEBUG
+        #print min(map(lambda x : ackley(x), population))
+    print "No solution found after " + str(NUM_ITERATIONS) + " iterations"
+
+evolve()
