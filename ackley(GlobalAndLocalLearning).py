@@ -4,7 +4,7 @@ import sys
 
 POPULATION_SIZE = 50
 # Number of children
-LAMBDA = 100
+LAMBDA = 200
 # Whether or not to use fixed 2 parents for each individual
 FIXED_PARENTS = True
 # Whether or not to use mu + lambda survivor selection
