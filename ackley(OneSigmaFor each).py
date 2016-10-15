@@ -121,9 +121,12 @@ def evolve():
         if check_for_solution(offspring):
             print "Solution found after " + str(i) + " iterations"
             return
+        print "######"
+        print min(map(lambda x : ackley(x), population))
+        print min(map(lambda x : ackley(x), offspring))
         population = select_survivors(population, offspring)
         # DEBUG
-        #print min(map(lambda x : ackley(x), population))
+        print min(map(lambda x : ackley(x), population))
     print "No solution found after " + str(NUM_ITERATIONS) + " iterations"
 
 evolve()

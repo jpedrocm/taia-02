@@ -17,6 +17,7 @@ USE_RECOMBINATION = True
 # Constant step factor
 TAL_LOCAL = 1/math.sqrt(2*math.sqrt(NUM_DIMENSIONS))
 TAL_GLOBAL = 1/math.sqrt(2*NUM_DIMENSIONS)
+ZERO_CORRELATION_PROBABILITY = 0.5
 BETA = math.pi/36 # 5 degrees as slides specify
 
 X_MIN = -15
@@ -28,7 +29,7 @@ ALFA_MAPPING = []
 
 def generate_population():
     population = list()
-    alfa = [BETA] * (NUM_DIMENSIONS*(NUM_DIMENSIONS - 1)/2)
+    alfa = [0] * (NUM_DIMENSIONS*(NUM_DIMENSIONS - 1)/2)
     for i in range(POPULATION_SIZE):
         genome = list()
         for s in range(NUM_DIMENSIONS):
@@ -45,11 +46,11 @@ def covarianceMat(sigmas,alfas):
         line = list()
         for j in range(NUM_DIMENSIONS):
             if i == j:
-                line.append(sigmas[j][1] * sigmas[i][1])
+                line.append(sigmas[j][1] * sigmas[j][1])
             else:
-                value = (sigmas[j][1] * sigmas[j][1] + sigmas[i][1] * sigmas[i][1])/2
-                value *= math.tan(2 * alfas[ALFA_MAPPING[i][j]])
-                line.append(abs(value))
+                value = (sigmas[j][1] * sigmas[j][1] - sigmas[i][1] * sigmas[i][1])/2
+                value *= math.sin(2*alfas[ALFA_MAPPING[i][j]])
+                line.append(value)
         covMatrix.append(line)
     return covMatrix
                 
@@ -101,10 +102,14 @@ def generate_offspring(population):
 def mutation(genome, alfas):
     mutated = list()
     matrix = covarianceMat(genome,alfas)
-    Z = perturbationForCov(matrix,1)
+    Z = perturbationForCov(matrix,0)
     for i in range(NUM_DIMENSIONS):
         mutated.append(((genome[i][0] + Z[i]),genome[i][1]))
     
+    # print "------"
+    # print Z
+    # print ackley(genome)
+    # print ackley(mutated)
     return genome if ackley(genome) <= ackley(mutated) else mutated
 
 def perturbation(population):
@@ -126,8 +131,13 @@ def perturbation(population):
 def adjust_alfa(alfas):
     newAlfa = list()
     for i in alfas:
-        newAlfa.append(i + BETA*random.gauss(0,1))
+        if random.uniform(0,1) > ZERO_CORRELATION_PROBABILITY:
+            newAlfa.append(i + BETA * random.gauss(0,1))
+        else :
+            newAlfa.append(0)
 
+    # print"aaaaaaaaa\n"
+    # print newAlfa
     return newAlfa
     
 def adjust_sigma(individual,global_adjustment):
@@ -176,10 +186,15 @@ def evolve():
         if check_for_solution(offspring):
             print "Solution found after " + str(i) + " iterations"
             return
+        print "######"
+        print min(map(lambda x : ackley(x[0]), population))
+        print min(map(lambda x : ackley(x[0]), offspring))
         population = select_survivors(population, offspring)
         # DEBUG
-        #print min(map(lambda x : ackley(x), population))
+        print min(map(lambda x : ackley(x[0]), population))
+
     print "No solution found after " + str(NUM_ITERATIONS) + " iterations"
+    # print population
 
 evolve()
 #pre_calc_alpha_mapping()
