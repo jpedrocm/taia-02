@@ -18,7 +18,8 @@ USE_RECOMBINATION = True
 TAL_LOCAL = 1/math.sqrt(2*math.sqrt(NUM_DIMENSIONS))
 TAL_GLOBAL = 1/math.sqrt(2*NUM_DIMENSIONS)
 ZERO_CORRELATION_PROBABILITY = 0.5
-BETA = math.pi/36 # 5 degrees as slides specify
+# 5 degrees as slides specify
+BETA = math.pi / 36
 
 X_MIN = -15
 X_MAX = 15
@@ -49,7 +50,7 @@ def covarianceMat(sigmas,alfas):
                 line.append(sigmas[j][1] * sigmas[j][1])
             else:
                 value = (sigmas[j][1] * sigmas[j][1] - sigmas[i][1] * sigmas[i][1])/2
-                value *= math.sin(2*alfas[ALFA_MAPPING[i][j]])
+                value *= math.tan(2*alfas[ALFA_MAPPING[i][j]])
                 line.append(value)
         covMatrix.append(line)
     return covMatrix
@@ -132,7 +133,11 @@ def adjust_alfa(alfas):
     newAlfa = list()
     for i in alfas:
         if random.uniform(0,1) > ZERO_CORRELATION_PROBABILITY:
-            newAlfa.append(i + BETA * random.gauss(0,1))
+            na = i + BETA * random.gauss(0,1)
+            if (abs(na) > math.pi):
+                na = na - 2 * math.pi * numpy.sign(na)
+            newAlfa.append(na)
+
         else :
             newAlfa.append(0)
 
@@ -157,10 +162,11 @@ def select_survivors(population, offspring):
 def check_for_solution(population):
     for x in population:
         # By using sys.float_info.epsilon, which equals to ~10e-16 in my machine,
-        # the convergence rate is greatly diminished. Using 10e-6 instead.
+        # the convergence rate is greatly diminished.
         if abs(ackley(x[0])) < 10e-10:
             return True
     return False
+
 def pre_calc_alpha_mapping():
     global ALFA_MAPPING
     ALFA_MAPPING = [([(-1) for y in range(NUM_DIMENSIONS)]) for x in range(NUM_DIMENSIONS)]
@@ -186,12 +192,12 @@ def evolve():
         if check_for_solution(offspring):
             print "Solution found after " + str(i) + " iterations"
             return
-        print "######"
-        print min(map(lambda x : ackley(x[0]), population))
-        print min(map(lambda x : ackley(x[0]), offspring))
+        #print "######"
+        #print min(map(lambda x : ackley(x[0]), population))
+        #print min(map(lambda x : ackley(x[0]), offspring))
         population = select_survivors(population, offspring)
         # DEBUG
-        print min(map(lambda x : ackley(x[0]), population))
+        #print min(map(lambda x : ackley(x[0]), population))
 
     print "No solution found after " + str(NUM_ITERATIONS) + " iterations"
     # print population
