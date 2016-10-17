@@ -5,13 +5,13 @@ import sys
 
 POPULATION_SIZE = 50
 # Number of children
-LAMBDA = 100
+LAMBDA = 200
 # Whether or not to use fixed 2 parents for each individual
 FIXED_PARENTS = True
 # Whether or not to use mu + lambda survivor selection
 MU_PLUS_LAMBDA = False
 # Number of dimensions
-NUM_DIMENSIONS = 30
+NUM_DIMENSIONS = 5
 # If it should or should not use recombination
 USE_RECOMBINATION = True
 # Constant step factor
@@ -27,6 +27,19 @@ X_MAX = 15
 NUM_ITERATIONS = 1000
 
 ALFA_MAPPING = []
+
+SOLUTION_FOUND_ITERATIONS = list()
+CONVERGENT_EXECS = 0
+CONVERGENT_INDIVIDUALS = list()
+ALL_SOLVED_ITERATIONS = list()
+INDIVIDUALS_FITNESS = list()
+
+def mean(list_items):
+    return sum(list_items)/float(len(list_items))
+
+def std_dev(list_items, mean_items):
+    variance_list = map(lambda x : pow(x-mean_items, 2), list_items)
+    return math.sqrt(sum(variance_list)/float(len(list_items)))
 
 def generate_population():
     population = list()
@@ -107,10 +120,6 @@ def mutation(genome, alfas):
     for i in range(NUM_DIMENSIONS):
         mutated.append(((genome[i][0] + Z[i]),genome[i][1]))
     
-    # print "------"
-    # print Z
-    # print ackley(genome)
-    # print ackley(mutated)
     return genome if ackley(genome) <= ackley(mutated) else mutated
 
 def perturbation(population):
@@ -141,8 +150,6 @@ def adjust_alfa(alfas):
         else :
             newAlfa.append(0)
 
-    # print"aaaaaaaaa\n"
-    # print newAlfa
     return newAlfa
     
 def adjust_sigma(individual,global_adjustment):
@@ -160,12 +167,13 @@ def select_survivors(population, offspring):
     return new_population
 
 def check_for_solution(population):
+    solutions = 0
     for x in population:
         # By using sys.float_info.epsilon, which equals to ~10e-16 in my machine,
         # the convergence rate is greatly diminished.
         if abs(ackley(x[0])) < 10e-10:
-            return True
-    return False
+            solutions+=1
+    return solutions
 
 def pre_calc_alpha_mapping():
     global ALFA_MAPPING
@@ -181,7 +189,9 @@ def pre_calc_alpha_mapping():
                     ALFA_MAPPING[i][j] = ALFA_MAPPING[j][i]                  
 
 def evolve():
+    global CONVERGENT_EXECS
     population = generate_population()
+    solved = False 
     pre_calc_alpha_mapping()
     for i in range(NUM_ITERATIONS):
         offspring = list()
@@ -189,18 +199,42 @@ def evolve():
             offspring = generate_offspring(population)
             
         offspring = perturbation(population + offspring)
-        if check_for_solution(offspring):
-            print "Solution found after " + str(i) + " iterations"
-            return
-        #print "######"
-        #print min(map(lambda x : ackley(x[0]), population))
-        #print min(map(lambda x : ackley(x[0]), offspring))
         population = select_survivors(population, offspring)
-        # DEBUG
-        #print min(map(lambda x : ackley(x[0]), population))
-
+        solutions = check_for_solution(population)
+        if solutions > 0 and not solved:
+            solved = True
+            CONVERGENT_INDIVIDUALS.append(solutions)
+            SOLUTION_FOUND_ITERATIONS.append(i)
+            mean_pop_fitness = mean(map(lambda x: ackley(x[0]), population))
+            INDIVIDUALS_FITNESS.append(mean_pop_fitness)
+            CONVERGENT_EXECS+=1
+            print "Solution found after " + str(i) + " iterations"
+            print "Population fitness: " + str(mean_pop_fitness)
+            print "Convergent individuals: " + str(solutions)
+        elif solutions==50:
+            ALL_SOLVED_ITERATIONS.append(i)
+            print "All individuals converged at iter " + str(i)
+            return
     print "No solution found after " + str(NUM_ITERATIONS) + " iterations"
-    # print population
 
-evolve()
-#pre_calc_alpha_mapping()
+
+def main():
+    for i in range(1,31):
+        print "Execution " + str(i)
+        evolve()
+        print ""
+    mean_iterations = mean(SOLUTION_FOUND_ITERATIONS)
+    mean_fitness = mean(INDIVIDUALS_FITNESS)
+    mean_individuals = mean(CONVERGENT_INDIVIDUALS)
+    mean_iter_total = mean(ALL_SOLVED_ITERATIONS)
+    print "Convergent executions: " + str(CONVERGENT_EXECS)
+    print "Mean of iterations: " + str(mean_iterations)
+    print "Std of iterations: " + str(std_dev(SOLUTION_FOUND_ITERATIONS, mean_iterations))
+    print "Mean of fitness: " + str(mean_fitness)
+    print "Std of fitness: " + str(std_dev(INDIVIDUALS_FITNESS, mean_fitness))
+    print "Mean of convergent indivs: " + str(mean_individuals)
+    print "Std of convergent indivs: " + str(std_dev(CONVERGENT_INDIVIDUALS, mean_individuals))
+    print "Mean of total convergence iterations: " + str(mean_iter_total)
+    print "Std of total convergence iterations: " + str(std_dev(ALL_SOLVED_ITERATIONS, mean_iter_total))
+
+main()

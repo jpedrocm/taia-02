@@ -10,18 +10,30 @@ FIXED_PARENTS = True
 # Whether or not to use mu + lambda survivor selection
 MU_PLUS_LAMBDA = False
 # Number of dimensions
-NUM_DIMENSIONS = 30
+NUM_DIMENSIONS = 5
 # If it should or should not use recombination
 USE_RECOMBINATION = True
 # Constant step factor
 TAL_LOCAL = 1/math.sqrt(2*math.sqrt(NUM_DIMENSIONS))
 TAL_GLOBAL = 1/math.sqrt(2*NUM_DIMENSIONS)
 
-
 X_MIN = -15
 X_MAX = 15
 
 NUM_ITERATIONS = 1000
+
+SOLUTION_FOUND_ITERATIONS = list()
+CONVERGENT_EXECS = 0
+CONVERGENT_INDIVIDUALS = list()
+ALL_SOLVED_ITERATIONS = list()
+INDIVIDUALS_FITNESS = list()
+
+def mean(list_items):
+    return sum(list_items)/float(len(list_items))
+
+def std_dev(list_items, mean_items):
+    variance_list = map(lambda x : pow(x-mean_items, 2), list_items)
+    return math.sqrt(sum(variance_list)/float(len(list_items)))
 
 def generate_population():
     population = list()
@@ -95,8 +107,7 @@ def adjust_sigma(individual,global_adjustment):
         sigma = individual[i][0]
         newSigma = sigma * math.exp(TAL_LOCAL * random.gauss(0,1) + global_adjustment)
         newIndividual.append((individual[i][0],newSigma))
-    return newIndividual
-    
+    return newIndividual  
 
 def select_survivors(population, offspring):
     new_population = population + offspring if MU_PLUS_LAMBDA else offspring  
@@ -105,28 +116,59 @@ def select_survivors(population, offspring):
     return new_population
 
 def check_for_solution(population):
+    solutions = 0
     for x in population:
         # By using sys.float_info.epsilon, which equals to ~10e-16 in my machine,
         # the convergence rate is greatly diminished. Using 10e-6 instead.
         if abs(ackley(x)) < 10e-10:
-            return True
-    return False
+            solutions+=1
+    return solutions
 
 def evolve():
+    global CONVERGENT_EXECS
     population = generate_population()
-    #sigma = 1.0
+    solved = False    
     for i in range(NUM_ITERATIONS):
         offspring = list()
         if USE_RECOMBINATION:
             offspring = generate_offspring(population)
             
         (offspring, ps) = perturbation(population + offspring)
-        if check_for_solution(offspring):
-            print "Solution found after " + str(i) + " iterations"
-            return
         population = select_survivors(population, offspring)
-        # DEBUG
-        #print min(map(lambda x : ackley(x), population))
+        solutions = check_for_solution(population)
+        if solutions > 0 and not solved:
+            solved = True
+            CONVERGENT_INDIVIDUALS.append(solutions)
+            SOLUTION_FOUND_ITERATIONS.append(i)
+            mean_pop_fitness = mean(map(lambda x: ackley(x), population))
+            INDIVIDUALS_FITNESS.append(mean_pop_fitness)
+            CONVERGENT_EXECS+=1
+            print "Solution found after " + str(i) + " iterations"
+            print "Population fitness: " + str(mean_pop_fitness)
+            print "Convergent individuals: " + str(solutions)
+        elif solutions==50:
+            ALL_SOLVED_ITERATIONS.append(i)
+            print "All individuals converged at iter " + str(i)
+            return
     print "No solution found after " + str(NUM_ITERATIONS) + " iterations"
 
-evolve()
+def main():
+    for i in range(1,31):
+        print "Execution " + str(i)
+        evolve()
+        print ""
+    mean_iterations = mean(SOLUTION_FOUND_ITERATIONS)
+    mean_fitness = mean(INDIVIDUALS_FITNESS)
+    mean_individuals = mean(CONVERGENT_INDIVIDUALS)
+    mean_iter_total = mean(ALL_SOLVED_ITERATIONS)
+    print "Convergent executions: " + str(CONVERGENT_EXECS)
+    print "Mean of iterations: " + str(mean_iterations)
+    print "Std of iterations: " + str(std_dev(SOLUTION_FOUND_ITERATIONS, mean_iterations))
+    print "Mean of fitness: " + str(mean_fitness)
+    print "Std of fitness: " + str(std_dev(INDIVIDUALS_FITNESS, mean_fitness))
+    print "Mean of convergent indivs: " + str(mean_individuals)
+    print "Std of convergent indivs: " + str(std_dev(CONVERGENT_INDIVIDUALS, mean_individuals))
+    print "Mean of total convergence iterations: " + str(mean_iter_total)
+    print "Std of total convergence iterations: " + str(std_dev(ALL_SOLVED_ITERATIONS, mean_iter_total))
+
+main()
